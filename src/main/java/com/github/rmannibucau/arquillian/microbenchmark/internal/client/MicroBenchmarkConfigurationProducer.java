@@ -28,7 +28,7 @@ public class MicroBenchmarkConfigurationProducer {
         for (final ExtensionDef def : descriptor.get().getExtensions()) {
             if (EXTENSION_NAME.equals(def.getExtensionName())) {
                 final Map<String,String> extensionProperties = def.getExtensionProperties();
-                // TODO
+                configuration.readFromMap(extensionProperties);
             }
         }
 

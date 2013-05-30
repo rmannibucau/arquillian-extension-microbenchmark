@@ -20,7 +20,7 @@ public class MicroBenchmarkRunConfiguration {
         // no-op
     }
 
-    public static MicroBenchmarkRunConfiguration readConfiguration(final Method method) {
+    public static MicroBenchmarkRunConfiguration readConfiguration(final Method method, final boolean globallyDetailed) {
         final MicroBenchmark runConfiguration = Annotations.findAnnotation(method, MicroBenchmark.class);
         if (runConfiguration == null) {
             return null;
@@ -28,15 +28,13 @@ public class MicroBenchmarkRunConfiguration {
 
         final MicroBenchmarkRunConfiguration run = new MicroBenchmarkRunConfiguration();
         run.threads = Math.max(runConfiguration.threads(), 1);
-        run.detailed = runConfiguration.detailed();
+        run.detailed = runConfiguration.mode() == MicroBenchmark.Mode.DETAILED || (runConfiguration.mode() == MicroBenchmark.Mode.UNKNWON && globallyDetailed);
         run.duration = runConfiguration.duration();
         run.iterations = runConfiguration.iterations();
         run.warmupThreads = Math.max(runConfiguration.warmupThreads(), 1);
         run.warmupDuration = runConfiguration.warmupDuration();
         run.warmupIterations = runConfiguration.warmupIterations();
         run.ignoreExceptions = runConfiguration.ignoreExceptions();
-
-
 
         return run;
     }

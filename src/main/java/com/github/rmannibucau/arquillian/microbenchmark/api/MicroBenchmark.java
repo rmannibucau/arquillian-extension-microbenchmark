@@ -23,5 +23,9 @@ public @interface MicroBenchmark {
 
     boolean ignoreExceptions() default false;
 
-    boolean detailed() default false;
+    Mode mode() default Mode.UNKNWON;
+
+    static enum  Mode {
+        NONE, DETAILED, UNKNWON;
+    }
 }

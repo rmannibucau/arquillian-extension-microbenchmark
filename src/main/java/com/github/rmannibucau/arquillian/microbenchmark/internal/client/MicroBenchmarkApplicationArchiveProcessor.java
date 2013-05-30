@@ -7,6 +7,7 @@ import org.jboss.arquillian.test.spi.TestClass;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.container.LibraryContainer;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.jboss.shrinkwrap.impl.base.filter.IncludeRegExpPaths;
 import org.jfree.JCommon;
 import org.jfree.chart.JFreeChart;
 
@@ -15,10 +16,13 @@ public class MicroBenchmarkApplicationArchiveProcessor implements ApplicationArc
     public void process(final Archive<?> applicationArchive, final TestClass testClass) {
         if (LibraryContainer.class.isInstance(applicationArchive) && !JavaArchive.class.isInstance(applicationArchive)) {
             final LibraryContainer container = LibraryContainer.class.cast(applicationArchive);
-            container.addAsLibraries(
-                    JarLocation.jarLocation(DescriptiveStatistics.class),
-                    JarLocation.jarLocation(JCommon.class),
-                    JarLocation.jarLocation(JFreeChart.class));
+
+            if (applicationArchive.getContent(new IncludeRegExpPaths("/WEB-INF/lib/commons-math3.*.jar")).size() == 0) {
+                container.addAsLibraries(JarLocation.jarLocation(DescriptiveStatistics.class));
+            }
+            if (applicationArchive.getContent(new IncludeRegExpPaths("/WEB-INF/lib/jfreechart.*.jar")).size() == 0) {
+                container.addAsLibraries(JarLocation.jarLocation(JCommon.class), JarLocation.jarLocation(JFreeChart.class));
+            }
         }
     }
 }

@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -63,8 +64,8 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
 
     public void bench(final @Observes(precedence = -1) EventContext<LocalExecutionEvent> eventContext) throws Throwable {
         final TestMethodExecutor executor = eventContext.getEvent().getExecutor();
-        final MicroBenchmarkRunConfiguration run = MicroBenchmarkRunConfiguration.readConfiguration(executor.getMethod());
-        if (run == null) {
+        final MicroBenchmarkRunConfiguration run = MicroBenchmarkRunConfiguration.readConfiguration(executor.getMethod(), configuration.get().isDetailed());
+        if (run == null || !configuration.get().isActivated()) {
             eventContext.proceed();
             return;
         }
@@ -127,7 +128,8 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
         if (run.getDuration() > 0) {
             final ExecutorService es = Executors.newFixedThreadPool(threads);
 
-            LOGGER.info("Running micro-bench for " + run.getDuration() + " ms");
+            final String benchTitle = "Running micro-bench for " + run.getDuration() + " ms";
+            LOGGER.info(benchTitle);
 
             final Collection<TimedInvocation> timedTasks = new ArrayList<TimedInvocation>();
             { // create time limited threads
@@ -155,13 +157,14 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
             // report
             final long duration = TimeUnit.NANOSECONDS.toMillis(realEnd - realStart);
             validExecution(results, run.isIgnoreExceptions());
-            final DescriptiveStatistics stats = report(executor, run, durations, duration);
+            final DescriptiveStatistics stats = report(benchTitle, executor, run, durations, duration);
             asserts(executor, stats, duration);
         }
 
         if (run.getIterations() > 0) {
             final Collection<Invocation> tasks = createTaks(executor, params, run);
-            LOGGER.info("Running micro-bench for " + run.getIterations() + " iterations");
+            final String benchTitle = "Running micro-bench for " + run.getIterations() + " iterations";
+            LOGGER.info(benchTitle);
 
             // wait all task are done and measure the duration
             final ExecutorService es = Executors.newFixedThreadPool(threads);
@@ -181,7 +184,7 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
             // report
             final long duration = TimeUnit.NANOSECONDS.toMillis(end - start);
             validExecution(unwrapFutures(results), run.isIgnoreExceptions());
-            final DescriptiveStatistics stats = report(executor, run, durations, duration);
+            final DescriptiveStatistics stats = report(benchTitle, executor, run, durations, duration);
             asserts(executor, stats, duration);
         }
     }
@@ -213,25 +216,28 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
         }
     }
 
-    private DescriptiveStatistics report(final TestMethodExecutor executor, final MicroBenchmarkRunConfiguration run, final Collection<Long> durations, long duration) {
+    private DescriptiveStatistics report(final String title, final TestMethodExecutor executor, final MicroBenchmarkRunConfiguration run, final Collection<Long> durations, long duration) {
         LOGGER.info("Micro-bench on " + executor.getMethod().getDeclaringClass().getSimpleName() + "#"
                 + executor.getMethod().getName() + " lasted " + duration + "ms with " + run.getThreads() + " threads.");
 
-        final DescriptiveStatistics stats = createStatistics(durations);
+        final DescriptiveStatistics stats;
+        final String info;
         if (run.isDetailed()) {
+            stats = createStatistics(durations);
+
             // log stats
-            final String info = stats.toString().replace("\n", ", ").substring("DescriptiveStatistics:, ".length());
+            info = stats.toString().replace("\n", ", ").substring("DescriptiveStatistics:, ".length());
             LOGGER.info("Aggregates: " + info);
-
-            if (configuration.get().isSaveDiagram()) {
-                saveDiagram(executor, durations, configuration.get(), info);
-            }
-
-            return stats;
+        } else {
+            // when not detailed the assertions valid only duration
+            stats = createStatistics(Arrays.asList(duration));
+            info = "data aggregated";
         }
 
-        // when not detailed the assertions valid only duration
-        stats.addValue(duration);
+        if (configuration.get().isSaveDiagram()) {
+            saveDiagram(executor, stats.getValues(), configuration.get(), title, info);
+        }
+
         return stats;
     }
 
@@ -243,14 +249,15 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
         return stats;
     }
 
-    private static void saveDiagram(final TestMethodExecutor executor, final Collection<Long> durations, final MicroBenchmarkConfiguration config, final String info) {
+    private static void saveDiagram(final TestMethodExecutor executor, final double[] durations, final MicroBenchmarkConfiguration config, final String title, final String info) {
         final Map<Long, Integer> xyValues = new HashMap<Long, Integer>();
-        for (final Long it : durations) {
-            final Integer number = xyValues.get(it);
+        for (final double it : durations) {
+            final long key = Double.valueOf(it).longValue();
+            final Integer number = xyValues.get(key);
             if (number == null) {
-                xyValues.put(it, 1);
+                xyValues.put(key, 1);
             } else {
-                xyValues.put(it, 1 + number);
+                xyValues.put(key, 1 + number);
             }
         }
 
@@ -258,7 +265,7 @@ public class MicroBenchmarkObserver extends LocalTestExecuter {
         for (final Map.Entry<Long, Integer> entry : xyValues.entrySet()) {
             xy.add(entry.getKey(), entry.getValue());
         }
-        final JFreeChart chart = ChartFactory.createHistogram("Method durations (" + info + ")", "Duration (ms)", "Number", new XYSeriesCollection(xy), PlotOrientation.VERTICAL, true, true, false);
+        final JFreeChart chart = ChartFactory.createHistogram(title + "(" + info + ")", "Duration (ms)", "Number", new XYSeriesCollection(xy), PlotOrientation.VERTICAL, true, true, false);
         chart.getXYPlot().getRangeAxis().setStandardTickUnits(NumberAxis.createIntegerTickUnits());
         chart.getXYPlot().getDomainAxis().setStandardTickUnits(NumberAxis.createIntegerTickUnits());
         try {

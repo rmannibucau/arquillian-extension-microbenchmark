@@ -12,6 +12,8 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Random;
+
 @RunWith(Arquillian.class)
 public class SimpleBenchTest {
     @Deployment(testable = true)
@@ -19,23 +21,25 @@ public class SimpleBenchTest {
         return ShrinkWrap.create(WebArchive.class, "simple.war").addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
     }
 
+    private static final Random RANDOM = new Random(System.currentTimeMillis());
+
     @Test
-    @MicroBenchmark(iterations = 5)
-    @MicroBenchmarkAssertion(total = 30)
+    @MicroBenchmark(iterations = 10)
+    @MicroBenchmarkAssertion(total = 100)
     public void success() {
-        sleep();
+        sleep(1, 5);
     }
 
     @Test(expected = AssertionException.class)
-    @MicroBenchmark(iterations = 5)
+    @MicroBenchmark(iterations = 10)
     @MicroBenchmarkAssertion(total = 1)
     public void failling() {
-        sleep();
+        sleep(5, 10);
     }
 
-    private void sleep() {
+    private void sleep(final int min, final int max) {
         try {
-            Thread.sleep(5);
+            Thread.sleep(min + RANDOM.nextInt(max - min));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
