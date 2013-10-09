@@ -10,7 +10,7 @@
   <container qualifier="tomee" default="true">
     <configuration>
       <property name="simpleLog">true</property>
-      <property name="version">1.6.0-SNAPSHOT</property>
+      <property name="version">1.5.1</property>
     </configuration>
   </container>
 </arquillian>
